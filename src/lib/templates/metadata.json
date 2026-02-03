@@ -1,0 +1,55 @@
+{
+  "fields": [
+    {
+      "key": "userType", 
+      "label": "User Type",
+      "type": "select",
+      "required": true,
+      "options": [
+        {"value": "internal", "label": "Internal (Support/Ops Team)"},
+        {"value": "external", "label": "External (Client Users)"},
+        {"value": "both", "label": "Both Internal & External"}
+      ],
+      "helpText": "Who should have access to this content?"
+    },
+    {
+      "key": "product",
+      "label": "Product",
+      "type": "select", 
+      "required": true,
+      "options": [
+        {"value": "property_engine", "label": "PropertyEngine"},
+        {"value": "betterID", "label": "BetterID"},
+        {"value": "nurture", "label": "Nurture"}
+      ],
+      "helpText": "Which product does this relate to?"
+    },
+    {
+      "key": "category",
+      "label": "Category",
+      "type": "select",
+      "required": true,
+      "options": [
+        {"value": "leads", "label": "Leads"},
+        {"value": "sales", "label": "Sales"},
+        {"value": "rentals", "label": "Rentals"}, 
+        {"value": "listings", "label": "Listings"},
+        {"value": "contacts", "label": "Contacts"},
+        {"value": "referrals", "label": "Referrals"},
+        {"value": "media", "label": "Media/Images"},
+        {"value": "user_management", "label": "User Management"},
+        {"value": "general", "label": "General"}
+      ],
+      "helpText": "Main category (PropertyEngine categories shown)",
+      "showIf": {"field": "product", "value": "property_engine"}
+    },
+    {
+      "key": "tags",
+      "label": "Tags",
+      "type": "text", 
+      "required": false,
+      "placeholder": "e.g., upload, photos, drag-drop, status-management",
+      "helpText": "Comma-separated keywords for filtering and search"
+    }
+  ]
+}

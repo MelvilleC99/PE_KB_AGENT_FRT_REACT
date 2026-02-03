@@ -1,0 +1,56 @@
+{
+  "id": "how_to_guide",
+  "name": "How-To Guide",
+  "description": "Step-by-step instructions for completing a task",
+  "fields": [
+    {
+      "key": "objective",
+      "label": "Objective",
+      "type": "text",
+      "required": true,
+      "placeholder": "What will users accomplish?"
+    },
+    {
+      "key": "prerequisites",
+      "label": "Prerequisites",
+      "type": "textarea",
+      "required": false,
+      "placeholder": "What do users need before starting?"
+    },
+    {
+      "key": "steps",
+      "label": "Steps",
+      "type": "textarea",
+      "required": true,
+      "placeholder": "1. First step...\n2. Second step...\n3. Third step..."
+    },
+    {
+      "key": "tips",
+      "label": "Tips & Best Practices",
+      "type": "textarea",
+      "required": false,
+      "placeholder": "Additional tips to help users succeed..."
+    },
+    {
+      "key": "previous_step",
+      "label": "Previous Step Link",
+      "type": "text",
+      "required": false,
+      "placeholder": "Link to previous how-to or workflow (entry ID or URL)"
+    },
+    {
+      "key": "next_step",
+      "label": "Next Step Link", 
+      "type": "text",
+      "required": false,
+      "placeholder": "Link to next how-to or workflow (entry ID or URL)"
+    }
+  ],
+  "metadata_requirements": {
+    "category": "required",
+    "subcategory": "optional",
+    "type": "optional",
+    "severity": "not_applicable",
+    "user_roles": "not_applicable"
+  }
+}

@@ -1,0 +1,143 @@
+{
+  "id": "how_to",
+  "name": "How-To Guide",
+  "description": "Step-by-step instructions and workflows",
+  "fields": [
+    {
+      "key": "title",
+      "label": "How-To Title",
+      "type": "text",
+      "required": true,
+      "placeholder": "e.g., How to Upload Property Photos, Lead Conversion Process",
+      "helpText": "Clear, descriptive title for this guide"
+    },
+    {
+      "key": "overview",
+      "label": "Overview",
+      "type": "textarea",
+      "required": true,
+      "placeholder": "Brief description of what this guide accomplishes",
+      "helpText": "What will the user achieve by following this guide?"
+    },
+    {
+      "key": "prerequisites",
+      "label": "Prerequisites",
+      "type": "textarea",
+      "required": false,
+      "placeholder": "What needs to be done or available before starting",
+      "helpText": "Required permissions, information, or prior steps"
+    },
+    {
+      "key": "step_type",
+      "label": "Step Type",
+      "type": "select",
+      "required": true,
+      "options": [
+        {"value": "single", "label": "Single Step"},
+        {"value": "multi", "label": "Multi-Step Process"}
+      ],
+      "helpText": "Is this a simple single action or multi-step process?"
+    },
+    {
+      "key": "single_step_description",
+      "label": "Instructions",
+      "type": "textarea",
+      "required": true,
+      "placeholder": "Detailed explanation of what to do and how to do it",
+      "helpText": "Provide clear, step-by-step instructions for this task",
+      "showIf": { "field": "step_type", "value": "single" }
+    },
+    {
+      "key": "single_step_screenshot",
+      "label": "Screenshot (Optional)",
+      "type": "image_upload",
+      "required": false,
+      "helpText": "Upload a screenshot showing this step",
+      "showIf": { "field": "step_type", "value": "single" }
+    },
+    {
+      "key": "steps",
+      "label": "Steps",
+      "type": "dynamic",
+      "required": true,
+      "helpText": "Add steps for this guide",
+      "showIf": { "field": "step_type", "value": "multi" },
+      "fields": [
+        {
+          "key": "step_title",
+          "label": "Step Title",
+          "type": "text",
+          "required": true,
+          "placeholder": "Brief title for this step"
+        },
+        {
+          "key": "description",
+          "label": "Description",
+          "type": "textarea",
+          "required": true,
+          "placeholder": "Detailed explanation of what to do"
+        },
+        {
+          "key": "action",
+          "label": "Action",
+          "type": "text",
+          "required": false,
+          "placeholder": "Specific action to take (e.g., Click Save, Navigate to...)"
+        },
+        {
+          "key": "screenshot",
+          "label": "Screenshot (Optional)",
+          "type": "image_upload",
+          "required": false,
+          "helpText": "Upload a screenshot showing this step"
+        }
+      ]
+    },
+    {
+      "key": "common_issues",
+      "label": "Common Issues",
+      "type": "dynamic",
+      "required": false,
+      "helpText": "Add common problems users might encounter",
+      "fields": [
+        {
+          "key": "issue",
+          "label": "Issue",
+          "type": "text",
+          "required": true,
+          "placeholder": "What problem occurs?"
+        },
+        {
+          "key": "reason",
+          "label": "Reason",
+          "type": "text",
+          "required": false,
+          "placeholder": "Why does this happen?"
+        },
+        {
+          "key": "solution",
+          "label": "Solution",
+          "type": "textarea",
+          "required": true,
+          "placeholder": "How to fix it"
+        }
+      ]
+    },
+    {
+      "key": "tips",
+      "label": "Tips & Best Practices",
+      "type": "textarea",
+      "required": false,
+      "placeholder": "Additional tips for success",
+      "helpText": "Pro tips to make this process easier"
+    },
+    {
+      "key": "related_links",
+      "label": "Related Helpful Links",
+      "type": "dynamic_related_links",
+      "required": false,
+      "placeholder": "Links to related guides or resources",
+      "helpText": "Related content that might be helpful"
+    }
+  ]
+}

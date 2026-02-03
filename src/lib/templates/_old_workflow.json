@@ -1,0 +1,107 @@
+{
+  "id": "workflow",
+  "name": "Workflow / Process",
+  "description": "Step-by-step process for complex tasks",
+  "fields": [
+    {
+      "key": "title",
+      "label": "Workflow Title",
+      "type": "text",
+      "required": true,
+      "placeholder": "e.g., Create New Property Listing",
+      "helpText": "Give this workflow a clear, searchable name"
+    },
+    {
+      "key": "overview",
+      "label": "Overview",
+      "type": "textarea",
+      "required": true,
+      "placeholder": "Brief description of what this workflow accomplishes",
+      "helpText": "What will the agent achieve by following these steps?"
+    },
+    {
+      "key": "estimated_time",
+      "label": "Estimated Time",
+      "type": "text",
+      "required": false,
+      "placeholder": "e.g., 30-45 minutes",
+      "helpText": "How long does this typically take?"
+    },
+    {
+      "key": "workflow_source",
+      "label": "Workflow Source",
+      "type": "select",
+      "required": true,
+      "options": [
+        { "value": "manual", "label": "Manual Entry" },
+        { "value": "pdf_upload", "label": "PDF Document Upload" }
+      ],
+      "helpText": "How are you providing this workflow information?"
+    },
+    {
+      "key": "pdf_file",
+      "label": "Upload PDF Document",
+      "type": "file",
+      "accept": ".pdf",
+      "required": false,
+      "showIf": { "field": "workflow_source", "value": "pdf_upload" },
+      "helpText": "Upload a PDF document containing the workflow process"
+    },
+    {
+      "key": "prerequisites",
+      "label": "Prerequisites",
+      "type": "textarea",
+      "required": true,
+      "placeholder": "• Active agent account\n• Property details\n• Photos (1200x900px, 3-10MB)\n• Mandate information",
+      "helpText": "List what's needed before starting (use • for bullets)"
+    },
+    {
+      "key": "steps",
+      "label": "Workflow Steps",
+      "type": "textarea",
+      "required": true,
+      "placeholder": "STEP 1: Access Dashboard\nWHERE: Browser\nACTION: Go to agents.realestateproptech.co.za and login\nRESULT: Dashboard displayed\n\nSTEP 2: Navigate to Listings\nWHERE: Dashboard > Left Sidebar\nACTION: Click 'Listings'\nRESULT: Listings page opens\n\nSTEP 3: Create New Listing\nWHERE: Listings Page > Top Right\nACTION: Click 'Add Listing' and select property type\nRESULT: Listing form opens",
+      "helpText": "Format each step using STEP #:, WHERE:, ACTION:, and RESULT:"
+    },
+    {
+      "key": "common_issues",
+      "label": "Common Issues",
+      "type": "textarea",
+      "required": false,
+      "placeholder": "ISSUE: Cannot publish listing\nCAUSE: Missing required fields\nSOLUTION: Check validation errors\n\nISSUE: Photos rejected\nCAUSE: Wrong dimensions\nSOLUTION: Use 1200x900px landscape",
+      "helpText": "List common problems using ISSUE:, CAUSE:, SOLUTION: format"
+    },
+    {
+      "key": "tips",
+      "label": "Pro Tips",
+      "type": "textarea",
+      "required": false,
+      "placeholder": "• Have all documents ready before starting\n• Save progress on complex listings\n• Review before publishing",
+      "helpText": "Best practices for success"
+    },
+    {
+      "key": "previous_workflow",
+      "label": "Previous Workflow",
+      "type": "text", 
+      "required": false,
+      "placeholder": "Link to prerequisite workflow or process",
+      "helpText": "What should be completed before this workflow"
+    },
+    {
+      "key": "next_workflow",
+      "label": "Next Workflow",
+      "type": "text",
+      "required": false, 
+      "placeholder": "Link to follow-up workflow or process",
+      "helpText": "What typically happens after this workflow"
+    }
+  ],
+  "metadata_requirements": {
+    "category": "required",
+    "subcategory": "optional",
+    "type": "optional",
+    "severity": "not_applicable",
+    "user_roles": "optional",
+    "tags": "optional"
+  }
+}

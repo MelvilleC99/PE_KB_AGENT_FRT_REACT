@@ -1,0 +1,42 @@
+{
+  "id": "error",
+  "name": "Issue/Error Explanation", 
+  "description": "Explain issues, errors, and troubleshooting with structured causes and solutions",
+  "fields": [
+    {
+      "key": "issue_title",
+      "label": "Issue Title",
+      "type": "text",
+      "required": true,
+      "placeholder": "e.g., Price reduction not working, Image upload failed"
+    },
+    {
+      "key": "issue_description",
+      "label": "Issue Description", 
+      "type": "textarea",
+      "required": true,
+      "placeholder": "What the user experiences or sees when this issue occurs..."
+    },
+    {
+      "key": "error_code",
+      "label": "Error Code (Optional)",
+      "type": "text", 
+      "required": false,
+      "placeholder": "e.g., IMG_TOO_LARGE, PRICE_REDUCTION_FAILED"
+    },
+    {
+      "key": "causes",
+      "label": "Causes & Solutions",
+      "type": "dynamic",
+      "required": true,
+      "placeholder": "Add the different causes and their solutions"
+    }
+  ],
+  "metadata_requirements": {
+    "category": "required",
+    "subcategory": "required",
+    "type": "optional", 
+    "severity": "required",
+    "user_roles": "not_applicable"
+  }
+}

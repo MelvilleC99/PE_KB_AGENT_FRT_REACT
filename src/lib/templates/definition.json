@@ -1,0 +1,47 @@
+{
+  "id": "definition",
+  "name": "Definition/Tooltip",
+  "description": "Define terms, statuses, and concepts",
+  "fields": [
+    {
+      "key": "term",
+      "label": "Term",
+      "type": "text",
+      "required": true,
+      "placeholder": "e.g., Ready for Offer, ERF Size, Mandate",
+      "helpText": "The term or concept being defined"
+    },
+    {
+      "key": "definition",
+      "label": "Definition",
+      "type": "textarea",
+      "required": true,
+      "placeholder": "Clear, concise definition of the term",
+      "helpText": "What does this term mean?"
+    },
+    {
+      "key": "examples",
+      "label": "Examples",
+      "type": "textarea",
+      "required": false,
+      "placeholder": "Real-world examples of this term in use",
+      "helpText": "Optional examples to clarify the definition"
+    },
+    {
+      "key": "also_known_as",
+      "label": "Also Known As",
+      "type": "text",
+      "required": false,
+      "placeholder": "Alternative terms, synonyms, or abbreviations",
+      "helpText": "Other names for this term"
+    },
+    {
+      "key": "related_links",
+      "label": "Related Helpful Links",
+      "type": "dynamic_related_links",
+      "required": false,
+      "placeholder": "Links to related entries or external resources",
+      "helpText": "Related content that might be helpful"
+    }
+  ]
+}
