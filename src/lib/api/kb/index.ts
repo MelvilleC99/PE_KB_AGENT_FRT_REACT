@@ -6,3 +6,4 @@ export * from './documents';
 export * from './vectors';
 export * from './sync';
 export * from './reads';
+export * from './duplicates';

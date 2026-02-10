@@ -51,15 +51,25 @@ export function useFeedback({
     setError(null)
 
     try {
-      const result = await submitFeedbackAPI({
-        ...feedbackData,
+      // Build clean payload matching backend expectations
+      const payload = {
+        message_id: feedbackData.message_id,
+        session_id: feedbackData.session_id,
         feedback_type: type === 'positive' ? 'helpful' : 'unhelpful',
+        query: feedbackData.query,
+        response: feedbackData.response,
+        agent_type: feedbackData.agent_type || 'test',
         user_info: {
-          agent_id: feedbackData.agent_id,
-          email: feedbackData.user_email || '',
-          full_name: feedbackData.user_name || ''
-        }
-      })
+          agent_id: feedbackData.agent_id || 'anonymous',
+          email: feedbackData.user_email || 'no-email@unknown.com',
+          full_name: feedbackData.user_name || 'Anonymous User'
+        },
+        confidence_score: feedbackData.confidence_score,
+        sources_used: feedbackData.sources_used
+      }
+
+      console.log('📤 Submitting feedback with payload:', payload);
+      const result = await submitFeedbackAPI(payload)
 
       if (result.success) {
         setFeedback(type)

@@ -78,30 +78,14 @@ export function EscalationPrompt({
   if (status === 'ticket_created' && ticketId) {
     return (
       <div className={cn(
-        "p-4 bg-green-50 border border-green-200 rounded-lg",
+        "inline-flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm",
         className
       )}>
-        <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-            <CheckCircle className="h-6 w-6 text-green-600" />
-          </div>
-          <div className="flex-1">
-            <h4 className="font-semibold text-green-800">
-              Support Ticket Created Successfully!
-            </h4>
-            <div className="mt-2 p-3 bg-white rounded border border-green-200">
-              <div className="flex items-center gap-2 text-green-700">
-                <Ticket className="h-4 w-4" />
-                <span className="font-mono font-bold text-lg">#{ticketId}</span>
-              </div>
-              <p className="text-sm text-gray-600 mt-1">
-                Reference this number in any follow-up communications.
-              </p>
-            </div>
-            <p className="text-sm text-green-600 mt-2">
-              Our support team will respond within 2 business hours.
-            </p>
-          </div>
+        <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+        <div>
+          <span className="font-medium text-green-800">Ticket Created: </span>
+          <span className="font-mono font-bold text-green-700">#{ticketId}</span>
+          <span className="text-green-600 ml-2">• Email confirmation sent</span>
         </div>
       </div>
     )
@@ -111,12 +95,10 @@ export function EscalationPrompt({
   if (status === 'declined') {
     return (
       <div className={cn(
-        "p-3 bg-gray-50 border border-gray-200 rounded-lg",
+        "inline-flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600",
         className
       )}>
-        <p className="text-sm text-gray-600">
-          No problem! Feel free to ask another question or try rephrasing.
-        </p>
+        No problem! Feel free to ask another question.
       </div>
     )
   }
@@ -125,13 +107,11 @@ export function EscalationPrompt({
   if (isRecordingFailure || status === 'idle') {
     return (
       <div className={cn(
-        "p-4 bg-gray-50 border border-gray-200 rounded-lg",
+        "inline-flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600",
         className
       )}>
-        <div className="flex items-center gap-2 text-gray-600">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="text-sm">Preparing escalation options...</span>
-        </div>
+        <Loader2 className="h-3 w-3 animate-spin" />
+        <span>Preparing options...</span>
       </div>
     )
   }
@@ -140,13 +120,12 @@ export function EscalationPrompt({
   if (error) {
     return (
       <div className={cn(
-        "p-4 bg-red-50 border border-red-200 rounded-lg",
+        "inline-flex flex-col gap-1 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm",
         className
       )}>
-        <p className="text-sm text-red-700 font-medium">Unable to create ticket</p>
-        <p className="text-sm text-red-600 mt-1">{error}</p>
-        <p className="text-xs text-red-500 mt-2">
-          Please contact support directly at support@propertyengine.co.za
+        <p className="text-red-700 font-medium">Unable to create ticket</p>
+        <p className="text-red-600 text-xs">
+          Please contact: support@propertyengine.co.za
         </p>
       </div>
     )
@@ -155,16 +134,11 @@ export function EscalationPrompt({
   // Show prompt (failure recorded, waiting for user action)
   return (
     <div className={cn(
-      "p-4 bg-blue-50 border border-blue-200 rounded-lg",
+      "inline-flex flex-col gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm",
       className
     )}>
-      <div className="flex items-center gap-2 mb-2">
-        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-        <p className="font-medium text-blue-900">Need more help?</p>
-      </div>
-      
-      <p className="text-sm text-blue-700 mb-3">
-        I couldn't find a confident answer to your question. Would you like me to create a support ticket so our team can assist you?
+      <p className="text-blue-800">
+        I couldn't find a confident answer. Would you like to create a support ticket?
       </p>
       
       <div className="flex gap-2">
@@ -172,7 +146,7 @@ export function EscalationPrompt({
           onClick={handleCreateTicket}
           disabled={isCreatingTicket || isDeclining}
           size="sm"
-          className="bg-blue-600 hover:bg-blue-700"
+          className="h-7 text-xs bg-blue-600 hover:bg-blue-700"
         >
           {isCreatingTicket ? (
             <>
@@ -182,7 +156,7 @@ export function EscalationPrompt({
           ) : (
             <>
               <MessageSquare className="h-3 w-3 mr-1" />
-              Create Ticket
+              Yes, Create Ticket
             </>
           )}
         </Button>
@@ -192,7 +166,7 @@ export function EscalationPrompt({
           disabled={isCreatingTicket || isDeclining}
           variant="outline"
           size="sm"
-          className="border-gray-300 hover:bg-gray-100"
+          className="h-7 text-xs border-gray-300 hover:bg-gray-100"
         >
           {isDeclining ? (
             <Loader2 className="h-3 w-3 animate-spin mr-1" />

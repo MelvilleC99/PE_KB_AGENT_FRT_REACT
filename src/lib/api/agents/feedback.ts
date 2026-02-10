@@ -26,6 +26,11 @@ export async function submitFeedback(input: FeedbackInput): Promise<{
   error?: string
 }> {
   try {
+    console.log('👍 Submitting feedback...', {
+      url: `${BACKEND_URL}/api/feedback`,
+      payload: input
+    });
+
     const response = await fetch(`${BACKEND_URL}/api/feedback`, {
       method: 'POST',
       headers: {
@@ -35,17 +40,20 @@ export async function submitFeedback(input: FeedbackInput): Promise<{
     });
 
     const data = await response.json();
+    console.log('👍 Feedback response:', { status: response.status, data });
 
     if (response.ok) {
+      console.log('✅ Feedback submitted successfully');
       return { success: true };
     } else {
+      console.error('❌ Feedback submission failed:', data);
       return { 
         success: false, 
-        error: data.error || 'Failed to submit feedback' 
+        error: data.error || data.detail || 'Failed to submit feedback' 
       };
     }
   } catch (err: any) {
-    console.error('Feedback submission failed:', err);
+    console.error('❌ Feedback network error:', err);
     return { 
       success: false, 
       error: err.message || 'Network error' 

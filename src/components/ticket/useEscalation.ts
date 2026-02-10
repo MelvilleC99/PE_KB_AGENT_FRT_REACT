@@ -5,7 +5,7 @@
  */
 
 import { useState, useCallback } from 'react'
-import { createTicket as createTicketAPI, declineTicket as declineTicketAPI } from '@/lib/api/agents'
+import { recordFailure as recordFailureAPI, createTicket as createTicketAPI, declineTicket as declineTicketAPI } from '@/lib/api/agents'
 
 export interface EscalationData {
   session_id: string
@@ -55,18 +55,22 @@ export function useEscalation(): UseEscalationReturn {
 
   /**
    * Record an agent failure (step 1)
-   * In Vite, we create failure ID immediately and proceed
+   * Calls backend to create failure record
    */
   const recordFailure = useCallback(async (data: EscalationData): Promise<string | null> => {
     setIsRecordingFailure(true)
     setError(null)
 
     try {
-      // Generate a failure ID immediately
-      const generatedId = `failure-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      setFailureId(generatedId)
-      setStatus('failure_recorded')
-      return generatedId
+      const result = await recordFailureAPI(data)
+      
+      if (result.success && result.failure_id) {
+        setFailureId(result.failure_id)
+        setStatus('failure_recorded')
+        return result.failure_id
+      } else {
+        throw new Error(result.error || 'Failed to record failure')
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to record failure'
       setError(msg)
@@ -93,23 +97,8 @@ export function useEscalation(): UseEscalationReturn {
     setError(null)
 
     try {
-      // Note: We need the escalation data stored when recordFailure was called
-      // For now, we'll need to pass the full data through or store it in state
-      // This is a simplified version
       const result = await createTicketAPI(
-        {
-          session_id: '',
-          agent_id: '',
-          query: '',
-          agent_response: '',
-          confidence_score: 0,
-          escalation_reason: 'low_confidence',
-          user_email: '',
-          user_name: '',
-          user_agency: '',
-          user_office: '',
-          agent_type: 'support'
-        } as any, // We'll need to store this data properly
+        failureId,
         conversationHistory || []
       )
 

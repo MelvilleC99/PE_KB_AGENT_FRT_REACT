@@ -2,10 +2,29 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { RefreshCw } from "lucide-react"
+import { RefreshCw, Trash2, AlertTriangle } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { ServiceStatusBadge } from "./ServiceStatusBadge"
 import { formatTimeAgo } from "./utils"
 import { checkSystemHealth } from "@/lib/api/system"
+import { flushRedis, flushRateLimits, flushSessions } from "@/lib/api/admin/redis"
+import { useToast } from "@/hooks/use-toast"
 
 export interface ServiceHealth {
   status: 'healthy' | 'degraded' | 'down' | 'unknown'
@@ -34,11 +53,17 @@ export interface SystemHealthData {
 }
 
 export function SystemHealthCard() {
+  const { toast } = useToast()
   const [health, setHealth] = useState<SystemHealthData | null>(null)
   const [loading, setLoading] = useState(true)
   const [checking, setChecking] = useState(false)
   const [lastChecked, setLastChecked] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  
+  // Redis flush state
+  const [showFlushDialog, setShowFlushDialog] = useState(false)
+  const [flushType, setFlushType] = useState<'all' | 'rate_limits' | 'sessions' | null>(null)
+  const [isFlushing, setIsFlushing] = useState(false)
 
   useEffect(() => {
     // Check immediately on mount
@@ -55,12 +80,12 @@ export function SystemHealthCard() {
     setError(null)
     
     try {
-      const data = await checkSystemHealth()
+      const response = await checkSystemHealth()
       
-      if (data.error) {
-        setError(data.error)
-      } else {
-        setHealth(data)
+      if (response.error) {
+        setError(response.error)
+      } else if (response.data) {
+        setHealth(response.data)
         setLastChecked(Date.now())
       }
     } catch (err) {
@@ -69,6 +94,57 @@ export function SystemHealthCard() {
     } finally {
       setLoading(false)
       setChecking(false)
+    }
+  }
+
+  const handleFlushClick = (type: 'all' | 'rate_limits' | 'sessions') => {
+    setFlushType(type)
+    setShowFlushDialog(true)
+  }
+
+  const handleFlushConfirm = async () => {
+    if (!flushType) return
+
+    setIsFlushing(true)
+
+    try {
+      let result
+      let description = ''
+
+      switch (flushType) {
+        case 'rate_limits':
+          result = await flushRateLimits()
+          description = `Flushed ${result.deleted_count} rate limit keys`
+          break
+        case 'sessions':
+          result = await flushSessions()
+          description = `Flushed ${result.deleted_count} session keys`
+          break
+        case 'all':
+          result = await flushRedis()
+          description = 'All Redis keys flushed'
+          break
+      }
+
+      toast({
+        title: "✅ Redis flushed successfully",
+        description,
+      })
+
+      // Refresh health check
+      checkHealth()
+
+    } catch (error) {
+      console.error('Flush failed:', error)
+      toast({
+        title: "❌ Flush failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive"
+      })
+    } finally {
+      setIsFlushing(false)
+      setShowFlushDialog(false)
+      setFlushType(null)
     }
   }
 
@@ -142,19 +218,54 @@ export function SystemHealthCard() {
             </Badge>
           )}
         </div>
-        <Button 
-          size="sm" 
-          variant="ghost"
-          onClick={checkHealth}
-          disabled={checking}
-          title="Refresh system health"
-        >
-          <RefreshCw className={`h-3 w-3 ${checking ? 'animate-spin' : ''}`} />
-        </Button>
+        <div className="flex gap-1">
+          {/* Redis Flush Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                size="sm" 
+                variant="ghost"
+                title="Redis cache controls"
+                disabled={isFlushing}
+              >
+                <Trash2 className="h-3 w-3 text-red-600" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleFlushClick('rate_limits')}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Flush Rate Limits
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleFlushClick('sessions')}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Flush Sessions
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => handleFlushClick('all')}
+                className="text-red-600"
+              >
+                <AlertTriangle className="mr-2 h-4 w-4" />
+                Flush All Keys
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Refresh Button */}
+          <Button 
+            size="sm" 
+            variant="ghost"
+            onClick={checkHealth}
+            disabled={checking}
+            title="Refresh system health"
+          >
+            <RefreshCw className={`h-3 w-3 ${checking ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
-          {health && Object.entries(health.services).map(([name, service]) => (
+          {health?.services && Object.entries(health.services).map(([name, service]) => (
             <div key={name} className="flex justify-between items-center">
               <span className="text-sm capitalize">
                 {name.replace('_', ' ')}
@@ -178,6 +289,44 @@ export function SystemHealthCard() {
           </p>
         )}
       </CardContent>
+
+      {/* Flush Confirmation Dialog */}
+      <AlertDialog open={showFlushDialog} onOpenChange={setShowFlushDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {flushType === 'all' ? '⚠️ Flush All Redis Keys?' : 'Flush Redis Cache?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {flushType === 'all' && (
+                <span className="text-red-600 font-semibold">
+                  This will delete ALL keys in Redis including rate limits, sessions, and context. This action cannot be undone.
+                </span>
+              )}
+              {flushType === 'rate_limits' && (
+                <span>
+                  This will reset all rate limit counters. Users will be able to make new queries immediately.
+                </span>
+              )}
+              {flushType === 'sessions' && (
+                <span>
+                  This will clear all session context and conversation history from cache. Active sessions will need to rebuild context.
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isFlushing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleFlushConfirm}
+              disabled={isFlushing}
+              className={flushType === 'all' ? 'bg-red-600 hover:bg-red-700' : ''}
+            >
+              {isFlushing ? 'Flushing...' : 'Flush Cache'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   )
 }

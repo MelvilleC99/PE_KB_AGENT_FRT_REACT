@@ -16,7 +16,26 @@ export interface KBEntry {
   createdAt?: string | Date
   updatedAt?: string | Date
   usageCount?: number
-  author?: string
+  author?: string // Legacy field, use createdBy instead
+  
+  // Audit trail: Creation
+  createdBy?: string // User ID (agent_id or uid)
+  createdByEmail?: string
+  createdByName?: string
+  
+  // Audit trail: Last modification
+  lastModifiedBy?: string // User ID
+  lastModifiedByEmail?: string
+  lastModifiedByName?: string
+  lastModifiedAt?: string | Date
+  
+  // Audit trail: Archive/Delete
+  archivedBy?: string // User ID
+  archivedByEmail?: string
+  archivedByName?: string
+  archivedAt?: string | Date
+  archivedReason?: string
+  
   vectorStatus?: 'pending' | 'synced' | 'failed'
   lastSyncedAt?: string | Date | null
   vectorDeletedAt?: string | Date | null

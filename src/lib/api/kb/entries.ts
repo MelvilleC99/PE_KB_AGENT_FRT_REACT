@@ -69,6 +69,9 @@ export async function updateKBEntry(
   updates: Partial<KBEntryInput>
 ): Promise<{success: boolean, error?: any}> {
   try {
+    console.log('📤 Sending UPDATE to backend:', `${BACKEND_URL}/api/kb/entries/${id}`)
+    console.log('📦 Payload:', JSON.stringify(updates, null, 2))
+    
     const response = await fetch(`${BACKEND_URL}/api/kb/entries/${id}`, {
       method: 'PUT',
       headers: {
@@ -77,8 +80,24 @@ export async function updateKBEntry(
       body: JSON.stringify(updates),
     });
 
-    return await response.json();
+    console.log('📨 Response status:', response.status, response.statusText)
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('❌ Backend error response:', errorText)
+      try {
+        const errorJson = JSON.parse(errorText)
+        return { success: false, error: errorJson.detail || errorJson.message || errorText }
+      } catch {
+        return { success: false, error: errorText }
+      }
+    }
+
+    const result = await response.json();
+    console.log('✅ Backend success response:', result)
+    return result;
   } catch (error) {
+    console.error('❌ Network error:', error)
     return { success: false, error };
   }
 }
@@ -86,10 +105,25 @@ export async function updateKBEntry(
 /**
  * Archive a KB entry (soft delete)
  */
-export async function archiveKBEntry(id: string): Promise<{success: boolean, error?: any}> {
+export async function archiveKBEntry(
+  id: string,
+  auditInfo?: {
+    archivedBy?: string
+    archivedByEmail?: string
+    archivedByName?: string
+    reason?: string
+  }
+): Promise<{success: boolean, error?: any}> {
   try {
     const response = await fetch(`${BACKEND_URL}/api/kb/entries/${id}/archive`, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: auditInfo ? JSON.stringify({
+        ...auditInfo,
+        archivedAt: new Date().toISOString()
+      }) : undefined
     });
 
     return await response.json();

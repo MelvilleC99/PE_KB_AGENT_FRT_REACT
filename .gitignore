@@ -28,6 +28,10 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+.env.production
+
+# Firebase
+.firebase/
 
 # OS generated files
 .DS_Store

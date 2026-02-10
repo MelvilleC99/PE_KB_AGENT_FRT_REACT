@@ -3,8 +3,10 @@ import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
+import { useUser } from "@/contexts/UserContext"
 import { SimpleKBTable } from "@/components/admin/simple-kb-table"
 import { ViewEntryModal } from "@/components/admin/view-entry-modal"
+import { EditEntryDialog } from "@/components/admin/edit-entry-dialog"
 import { FilterBar } from "@/components/admin/filter-bar"
 import { getKBEntries, archiveKBEntry, syncKBEntry } from "@/lib/api/kb"
 import { Plus, RefreshCw } from "lucide-react"
@@ -12,10 +14,12 @@ import type { KBEntry } from "@/lib/types/kb"
 
 export function FirebasePage() {
   const { toast } = useToast()
+  const { user } = useUser() // Get current user for audit trail
   const [entries, setEntries] = useState<KBEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState<string | null>(null)
   const [viewModalOpen, setViewModalOpen] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
   const [selectedEntry, setSelectedEntry] = useState<KBEntry | null>(null)
   
   // Filters
@@ -23,6 +27,10 @@ export function FirebasePage() {
   const [typeFilter, setTypeFilter] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("")
   const [userTypeFilter, setUserTypeFilter] = useState("")
+  
+  // Sorting
+  const [sortBy, setSortBy] = useState<string>("updated")
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   // Fetch entries
   useEffect(() => {
@@ -46,18 +54,56 @@ export function FirebasePage() {
     }
   }
 
-  // Filter entries
-  const filteredEntries = entries.filter(entry => {
-    const matchesSearch = !searchQuery || 
-      entry.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      entry.content?.toLowerCase().includes(searchQuery.toLowerCase())
+  // Filter and sort entries
+  const filteredAndSortedEntries = (() => {
+    // First filter
+    let filtered = entries.filter(entry => {
+      const matchesSearch = !searchQuery || 
+        entry.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        entry.content?.toLowerCase().includes(searchQuery.toLowerCase())
+      
+      const matchesType = !typeFilter || entry.type === typeFilter
+      const matchesCategory = !categoryFilter || entry.category === categoryFilter || entry.metadata?.category === categoryFilter
+      const matchesUserType = !userTypeFilter || entry.userType === userTypeFilter || entry.metadata?.userType === userTypeFilter
+      
+      return matchesSearch && matchesType && matchesCategory && matchesUserType
+    })
     
-    const matchesType = !typeFilter || entry.type === typeFilter
-    const matchesCategory = !categoryFilter || entry.category === categoryFilter || entry.metadata?.category === categoryFilter
-    const matchesUserType = !userTypeFilter || entry.userType === userTypeFilter || entry.metadata?.userType === userTypeFilter
-    
-    return matchesSearch && matchesType && matchesCategory && matchesUserType
-  })
+    // Then sort
+    return filtered.sort((a, b) => {
+      let comparison = 0
+      
+      switch (sortBy) {
+        case 'title':
+          comparison = (a.title || '').localeCompare(b.title || '')
+          break
+        case 'type':
+          comparison = (a.type || '').localeCompare(b.type || '')
+          break
+        case 'category':
+          const catA = a.metadata?.category || a.category || ''
+          const catB = b.metadata?.category || b.category || ''
+          comparison = catA.localeCompare(catB)
+          break
+        case 'createdBy':
+          comparison = (a.createdByName || '').localeCompare(b.createdByName || '')
+          break
+        case 'created':
+          const createdA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+          const createdB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+          comparison = createdA - createdB
+          break
+        case 'updated':
+        default:
+          const updatedA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+          const updatedB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+          comparison = updatedA - updatedB
+          break
+      }
+      
+      return sortOrder === 'desc' ? -comparison : comparison
+    })
+  })()
 
   // Handlers
   const handleView = (entry: KBEntry) => {
@@ -66,8 +112,8 @@ export function FirebasePage() {
   }
 
   const handleEdit = (entry: KBEntry) => {
-    // Navigate to edit page
-    window.location.href = `/add-entry?edit=${entry.id}`
+    setSelectedEntry(entry)
+    setEditModalOpen(true)
   }
 
   const handleDelete = async (entryId: string) => {
@@ -77,7 +123,13 @@ export function FirebasePage() {
     if (!confirm(`Archive "${entry.title}"?\n\nThis will move it to the archive.`)) return
 
     try {
-      const result = await archiveKBEntry(entryId)
+      // Archive with audit trail
+      const result = await archiveKBEntry(entryId, {
+        archivedBy: user?.agent_id || user?.uid || 'anonymous',
+        archivedByEmail: user?.email || 'unknown@example.com',
+        archivedByName: user?.full_name || 'Anonymous User',
+        reason: 'User archived from Firebase page'
+      })
       
       if (result.success) {
         setEntries(entries.filter(e => e.id !== entryId))
@@ -146,6 +198,17 @@ export function FirebasePage() {
     setCategoryFilter("")
     setUserTypeFilter("")
   }
+  
+  const handleSort = (column: string) => {
+    if (sortBy === column) {
+      // Toggle sort order if clicking same column
+      setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')
+    } else {
+      // New column - default to desc
+      setSortBy(column)
+      setSortOrder('desc')
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -172,7 +235,7 @@ export function FirebasePage() {
       {/* Stats Card */}
       <Card>
         <CardHeader>
-          <CardTitle>{filteredEntries.length} Entries</CardTitle>
+          <CardTitle>{filteredAndSortedEntries.length} Entries</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Filters */}
@@ -196,12 +259,15 @@ export function FirebasePage() {
             </div>
           ) : (
             <SimpleKBTable
-              entries={filteredEntries}
+              entries={filteredAndSortedEntries}
               onView={handleView}
               onEdit={handleEdit}
               onDelete={handleDelete}
               onSync={handleSync}
               syncingEntryId={syncing}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
             />
           )}
         </CardContent>
@@ -214,6 +280,19 @@ export function FirebasePage() {
         onClose={() => {
           setViewModalOpen(false)
           setSelectedEntry(null)
+        }}
+      />
+
+      {/* Edit Modal */}
+      <EditEntryDialog
+        entry={selectedEntry}
+        isOpen={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false)
+          setSelectedEntry(null)
+        }}
+        onSaved={() => {
+          loadEntries() // Refresh entries after save
         }}
       />
     </div>

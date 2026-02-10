@@ -24,9 +24,42 @@ interface SimpleKBTableProps {
   onView?: (entry: KBEntry) => void
   onSync?: (entry: KBEntry) => void
   syncingEntryId?: string | null
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
+  onSort?: (column: string) => void
 }
 
-export function SimpleKBTable({ entries, onEdit, onDelete, onView, onSync, syncingEntryId }: SimpleKBTableProps) {
+const formatDate = (date: any): string => {
+  if (!date) return '-'
+  const d = date instanceof Date ? date : new Date(date)
+  if (isNaN(d.getTime())) return '-'
+  
+  const now = new Date()
+  const diffMs = now.getTime() - d.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  
+  if (diffDays === 0) return 'Today'
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays < 7) return `${diffDays}d ago`
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`
+  
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined })
+}
+
+export function SimpleKBTable({ entries, onEdit, onDelete, onView, onSync, syncingEntryId, sortBy, sortOrder, onSort }: SimpleKBTableProps) {
+  const SortableHeader = ({ column, children }: { column: string, children: React.ReactNode }) => (
+    <TableHead 
+      onClick={() => onSort?.(column)}
+      className={onSort ? "cursor-pointer hover:bg-gray-50 select-none" : ""}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        {sortBy === column && (
+          <span className="text-xs">{sortOrder === 'desc' ? '↓' : '↑'}</span>
+        )}
+      </div>
+    </TableHead>
+  )
   if (entries.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
@@ -40,10 +73,12 @@ export function SimpleKBTable({ entries, onEdit, onDelete, onView, onSync, synci
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Title</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Category</TableHead>
-            <TableHead>User Type</TableHead>
+            <SortableHeader column="title">Title</SortableHeader>
+            <SortableHeader column="type">Type</SortableHeader>
+            <SortableHeader column="category">Category</SortableHeader>
+            <SortableHeader column="createdBy">Created By</SortableHeader>
+            <SortableHeader column="created">Created</SortableHeader>
+            <SortableHeader column="updated">Updated</SortableHeader>
             <TableHead>Vector Status</TableHead>
             <TableHead className="w-[120px]">Actions</TableHead>
           </TableRow>
@@ -89,17 +124,14 @@ export function SimpleKBTable({ entries, onEdit, onDelete, onView, onSync, synci
                   {(entry.metadata?.category || entry.category || 'uncategorized').replace('_', ' ')}
                 </Badge>
               </TableCell>
-              <TableCell>
-                <Badge variant={
-                  entry.metadata?.userType === 'internal' ? 'default' :
-                  entry.metadata?.userType === 'external' ? 'secondary' : 'outline'
-                } className={
-                  entry.metadata?.userType === 'internal' ? 'bg-blue-100 text-blue-700 border-blue-200' :
-                  entry.metadata?.userType === 'external' ? 'bg-green-100 text-green-700 border-green-200' :
-                  'bg-gray-100 text-gray-700 border-gray-200'
-                }>
-                  {entry.metadata?.userType || 'unknown'}
-                </Badge>
+              <TableCell className="text-sm text-gray-600">
+                {entry.createdByName || '-'}
+              </TableCell>
+              <TableCell className="text-sm text-gray-600">
+                {formatDate(entry.createdAt)}
+              </TableCell>
+              <TableCell className="text-sm text-gray-600">
+                {formatDate(entry.updatedAt)}
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-2">

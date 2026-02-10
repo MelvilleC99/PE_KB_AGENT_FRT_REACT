@@ -302,11 +302,37 @@ export function ViewEntryModal({ entry, isOpen, onClose }: ViewEntryModalProps) 
               </div>
               
               <div className="space-y-3 text-sm">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-gray-500" />
-                  <span>Created: {formatDate(entry.createdAt)}</span>
+                {/* Created info */}
+                <div className="flex items-start gap-2">
+                  <Calendar className="w-4 h-4 text-gray-500 mt-0.5" />
+                  <div className="flex flex-col">
+                    <span className="font-medium">Created: {formatDate(entry.createdAt)}</span>
+                    {entry.createdByName && (
+                      <span className="text-xs text-gray-600">
+                        by {entry.createdByName}
+                        {entry.createdByEmail && ` (${entry.createdByEmail})`}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 
+                {/* Last edited info */}
+                {entry.lastModifiedAt && (
+                  <div className="flex items-start gap-2">
+                    <Calendar className="w-4 h-4 text-blue-500 mt-0.5" />
+                    <div className="flex flex-col">
+                      <span className="font-medium">Last edited: {formatDate(entry.lastModifiedAt)}</span>
+                      {entry.lastModifiedByName && (
+                        <span className="text-xs text-gray-600">
+                          by {entry.lastModifiedByName}
+                          {entry.lastModifiedByEmail && ` (${entry.lastModifiedByEmail})`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Usage count */}
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4 text-gray-500" />
                   <span>Usage: {entry.usageCount || 0} times</span>

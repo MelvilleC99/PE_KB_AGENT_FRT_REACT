@@ -191,15 +191,15 @@ export function FullPageChat({ agentType }: FullPageChatProps) {
                       <EscalationPrompt
                         escalationData={{
                           session_id: sessionId,
-                          agent_id: user.agent_id || '',
+                          agent_id: user.agent_id || user.uid || 'anonymous',
                           query: getPreviousUserMessage(messageIndex),
                           agent_response: message.content,
                           confidence_score: message.sources?.[0]?.confidence || 0,
                           escalation_reason: 'low_confidence',
-                          user_email: user.email,
-                          user_name: user.full_name,
-                          user_agency: user.agency,
-                          user_office: user.office,
+                          user_email: user.email || 'no-email@unknown.com',
+                          user_name: user.full_name || 'Anonymous User',
+                          user_agency: user.agency || 'Unknown',
+                          user_office: user.office || 'Unknown',
                           agent_type: agentType
                         }}
                         conversationHistory={messages.map(m => ({
@@ -221,7 +221,6 @@ export function FullPageChat({ agentType }: FullPageChatProps) {
 
                     {/* Feedback buttons - Using isolated FeedbackButtons component */}
                     {message.role === 'assistant' && 
-                     agentType !== 'test' && 
                      !message.requiresEscalation &&
                      user && 
                      sessionId && (
@@ -231,9 +230,9 @@ export function FullPageChat({ agentType }: FullPageChatProps) {
                         query={getPreviousUserMessage(messageIndex)}
                         response={message.content}
                         user={{
-                          agent_id: user.agent_id || '',
-                          email: user.email,
-                          full_name: user.full_name
+                          agent_id: user.agent_id || user.uid || 'anonymous',
+                          email: user.email || 'no-email@unknown.com',
+                          full_name: user.full_name || 'Anonymous User'
                         }}
                         agentType={agentType}
                         confidenceScore={message.sources?.[0]?.confidence}

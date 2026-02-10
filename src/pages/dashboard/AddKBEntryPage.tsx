@@ -3,21 +3,30 @@ import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
+import { useUser } from "@/contexts/UserContext"
 import { TemplateSelector } from "@/components/kb/template-selector"
 import { EntryForm } from "@/components/kb/entry-form"
 import { PreviewPanel } from "@/components/kb/preview-panel"
 import { DocumentUploadForm } from "@/components/kb/document-upload-form"
+import { DuplicateWarningDialog } from "@/components/admin/duplicate-warning-dialog"
 import { ArrowLeft, Save, Eye, EyeOff, Edit, Upload } from "lucide-react"
 import { createKBEntry } from "@/lib/api/kb"
+import { checkForDuplicates, type SimilarEntry } from "@/lib/api/kb/duplicates"
 import { StandardMetadata } from "@/components/kb/standard-metadata"
 
 export function AddKBEntryPage() {
   const { toast } = useToast()
+  const { user } = useUser() // Get current user for audit trail
   const [mode, setMode] = useState<'choice' | 'manual' | 'upload'>('choice')
   const [templateId, setTemplateId] = useState("")
   const [userType, setUserType] = useState("internal") // Default to internal
   const [product, setProduct] = useState("property_engine") // Default to property_engine
   const [category, setCategory] = useState("")
+  
+  // Duplicate detection
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false)
+  const [similarEntries, setSimilarEntries] = useState<SimilarEntry[]>([])
+  const [pendingEntryData, setPendingEntryData] = useState<any>(null)
   const [tags, setTags] = useState("")
   const [formData, setFormData] = useState<Record<string, any>>({})
   const [showPreview, setShowPreview] = useState(false)
@@ -32,6 +41,45 @@ export function AddKBEntryPage() {
     setTags("")
     setFormData({})
     setShowPreview(false)
+  }
+
+  // Handle proceeding with save despite duplicate warning
+  const handleProceedWithSave = async () => {
+    if (!pendingEntryData) return;
+
+    try {
+      console.log('📝 User chose to save anyway despite duplicates');
+      const result = await createKBEntry(pendingEntryData);
+
+      if (result.success) {
+        toast({
+          title: "Entry created successfully",
+          description: "Your knowledge base entry has been saved and processed for vector search."
+        });
+        
+        // Reset form
+        handleBackToChoice();
+      } else {
+        throw new Error(result.error || 'Failed to create entry');
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+      let errorMessage = "Failed to create entry";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    } finally {
+      // Clean up pending data and close dialog
+      setPendingEntryData(null);
+      setSimilarEntries([]);
+      setShowDuplicateDialog(false);
+    }
   }
 
   const isFormValid = () => {
@@ -252,6 +300,9 @@ export function AddKBEntryPage() {
         contentText = textValues.join(" ")
       }
 
+      // Convert tags string to array if backend expects list
+      const tagsArray = tags ? tags.split(',').map(t => t.trim()).filter(t => t) : []
+      
       const entryData = {
         type: templateId,
         title,
@@ -262,9 +313,14 @@ export function AddKBEntryPage() {
           userType: userType || 'internal',
           product: product || 'property_engine',
           category: category || '',
-          tags: tags || '',
+          tags: tagsArray,  // Send as array
           related_documents: extractRelatedDocuments() // Extract from related_links or related_help
-        }
+        },
+        // Audit trail: Creation info
+        createdBy: user?.agent_id || user?.uid || 'anonymous',
+        createdByEmail: user?.email || 'unknown@example.com',
+        createdByName: user?.full_name || 'Anonymous User',
+        createdAt: new Date().toISOString()
       }
 
       // AUTO-POPULATE: Copy error_code to metadata if it exists
@@ -283,6 +339,26 @@ export function AddKBEntryPage() {
 
       console.log('🚀 About to save entry data:', entryData);
 
+      // Step 1: Check for duplicates before saving
+      console.log('🔍 Checking for duplicate entries...');
+      const duplicateCheck = await checkForDuplicates({
+        title,
+        content: contentText,
+        type: templateId
+      });
+
+      if (duplicateCheck.has_duplicates && duplicateCheck.similar_entries.length > 0) {
+        // Found similar entries - show dialog and pause save
+        console.log(`⚠️ Found ${duplicateCheck.similar_entries.length} similar entries`);
+        setSimilarEntries(duplicateCheck.similar_entries);
+        setPendingEntryData(entryData);
+        setShowDuplicateDialog(true);
+        return; // Exit handleSave, user will decide in dialog
+      }
+
+      console.log('✅ No duplicates found, proceeding with save');
+
+      // Step 2: No duplicates, proceed with save
       const result = await createKBEntry(entryData)
 
       if (result.success) {
@@ -504,6 +580,19 @@ export function AddKBEntryPage() {
           </div>
         )}
       </div>
+
+      {/* Duplicate Warning Dialog */}
+      <DuplicateWarningDialog
+        isOpen={showDuplicateDialog}
+        onClose={() => {
+          setShowDuplicateDialog(false);
+          setSimilarEntries([]);
+          setPendingEntryData(null);
+        }}
+        onProceed={handleProceedWithSave}
+        similarEntries={similarEntries}
+        newEntryTitle={pendingEntryData?.title || ""}
+      />
     </div>
   )
 }
