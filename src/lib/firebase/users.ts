@@ -96,9 +96,9 @@ export async function getUser(email: string): Promise<UserInfo | null> {
     console.warn('Firebase not initialized. Please set up your environment variables.');
     return null;
   }
-  
+
   try {
-    const docRef = doc(db, USERS_COLLECTION, email);
+    const docRef = doc(db, USERS_COLLECTION, email.toLowerCase());
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
@@ -133,7 +133,8 @@ export async function createOrUpdateUser(userData: UserInfo): Promise<UserInfo> 
   }
 
   try {
-    const userRef = doc(db, USERS_COLLECTION, userData.email);
+    const normalizedEmail = userData.email.toLowerCase();
+    const userRef = doc(db, USERS_COLLECTION, normalizedEmail);
     const existingUser = await getDoc(userRef);
     
     const now = Timestamp.now();
@@ -152,6 +153,7 @@ export async function createOrUpdateUser(userData: UserInfo): Promise<UserInfo> 
       // Create new user
       const newUser: UserInfo = {
         ...userData,
+        email: normalizedEmail,
         created_at: now,
         last_login: now,
         total_queries: 0,

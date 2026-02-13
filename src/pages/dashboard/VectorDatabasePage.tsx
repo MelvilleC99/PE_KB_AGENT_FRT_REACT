@@ -10,8 +10,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
-import { RefreshCw, Eye, Trash2, Database } from "lucide-react"
+import { RefreshCw, Eye, Trash2, Database, X, Loader2 } from "lucide-react"
 import { getVectorEntries, deleteVectorEntry } from "@/lib/api/kb"
 
 interface VectorEntry {
@@ -39,6 +40,82 @@ export function VectorDatabasePage() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [viewingEntry, setViewingEntry] = useState<VectorEntry | null>(null)
   const [selectedType, setSelectedType] = useState('all')
+
+  // Filter entries
+  const filteredEntries = selectedType === 'all'
+    ? entries
+    : entries.filter(e => (e.metadata?.entryType || e.metadata?.type) === selectedType)
+
+  // Bulk selection mode
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false)
+    setSelectedIds(new Set())
+  }
+
+  const toggleSelect = (entryId: string) => {
+    const next = new Set(selectedIds)
+    if (next.has(entryId)) {
+      next.delete(entryId)
+    } else {
+      next.add(entryId)
+    }
+    setSelectedIds(next)
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredEntries.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(filteredEntries.map(e => e.entry_id)))
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    const count = selectedIds.size
+    if (count === 0) return
+
+    // Deduplicate by parent ID so we don't call delete multiple times for chunks of the same entry
+    const parentIds = new Set<string>()
+    for (const id of selectedIds) {
+      const parentId = id.includes('_chunk_') ? id.split('_chunk_')[0] : id
+      parentIds.add(parentId)
+    }
+
+    if (!confirm(`Delete ${count} vector entries (${parentIds.size} unique documents) from AstraDB?\n\nThis cannot be undone.`)) return
+
+    setBulkDeleting(true)
+
+    try {
+      const results = await Promise.allSettled(
+        Array.from(parentIds).map(id => deleteVectorEntry(id))
+      )
+
+      const deleted = results.filter(r => r.status === 'fulfilled' && r.value.success).length
+      const failed = parentIds.size - deleted
+
+      exitSelectionMode()
+
+      toast({
+        title: failed > 0 ? 'Bulk delete partially complete' : 'Bulk delete complete',
+        description: `Deleted ${deleted} of ${parentIds.size} documents${failed > 0 ? `, ${failed} failed` : ''}`,
+        variant: failed > 0 ? 'destructive' : undefined
+      })
+
+      loadVectors()
+    } catch (error) {
+      toast({
+        title: 'Bulk delete error',
+        description: 'An unexpected error occurred',
+        variant: 'destructive'
+      })
+    } finally {
+      setBulkDeleting(false)
+    }
+  }
 
   // Load vectors
   const loadVectors = async () => {
@@ -144,11 +221,6 @@ export function VectorDatabasePage() {
     loadVectors()
   }, [])
 
-  // Filter entries
-  const filteredEntries = selectedType === 'all' 
-    ? entries 
-    : entries.filter(e => (e.metadata?.entryType || e.metadata?.type) === selectedType)
-
   // Type counts
   const typeCounts = entries.reduce((acc, entry) => {
     const type = entry.metadata?.entryType || entry.metadata?.type || 'unknown'
@@ -167,10 +239,23 @@ export function VectorDatabasePage() {
           </h1>
           <p className="text-gray-600">Manage vector embeddings in AstraDB</p>
         </div>
-        <Button onClick={loadVectors} disabled={loading}>
-          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={loadVectors} disabled={loading}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          {selectionMode ? (
+            <Button variant="outline" onClick={exitSelectionMode}>
+              <X className="w-4 h-4 mr-2" />
+              Cancel
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={() => setSelectionMode(true)} className="text-red-600 border-red-200 hover:bg-red-50">
+              <Trash2 className="w-4 h-4 mr-2" />
+              Bulk Delete
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Main Card */}
@@ -211,6 +296,32 @@ export function VectorDatabasePage() {
             </Button>
           </div>
 
+          {/* Bulk Action Bar */}
+          {selectionMode && (
+            <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <span className="text-sm font-medium text-blue-800">
+                {selectedIds.size === 0
+                  ? 'Select vectors to delete'
+                  : `${selectedIds.size} ${selectedIds.size === 1 ? 'vector' : 'vectors'} selected`}
+              </span>
+              <div className="flex items-center gap-2 ml-auto">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleting || selectedIds.size === 0}
+                >
+                  {bulkDeleting ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3 w-3 mr-1" />
+                  )}
+                  {bulkDeleting ? 'Deleting...' : `Delete Selected (${selectedIds.size})`}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Table */}
           {loading ? (
             <div className="text-center py-12">
@@ -226,6 +337,14 @@ export function VectorDatabasePage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    {selectionMode && (
+                      <TableHead className="w-[40px]">
+                        <Checkbox
+                          checked={filteredEntries.length > 0 && selectedIds.size === filteredEntries.length ? true : selectedIds.size > 0 ? "indeterminate" : false}
+                          onCheckedChange={toggleSelectAll}
+                        />
+                      </TableHead>
+                    )}
                     <TableHead>Title</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Category</TableHead>
@@ -234,7 +353,15 @@ export function VectorDatabasePage() {
                 </TableHeader>
                 <TableBody>
                   {filteredEntries.map((entry) => (
-                    <TableRow key={entry.entry_id}>
+                    <TableRow key={entry.entry_id} className={selectionMode && selectedIds.has(entry.entry_id) ? "bg-blue-50" : ""}>
+                      {selectionMode && (
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIds.has(entry.entry_id)}
+                            onCheckedChange={() => toggleSelect(entry.entry_id)}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell className="font-medium">
                         <div>{entry.title}</div>
                         {entry.content_preview && (

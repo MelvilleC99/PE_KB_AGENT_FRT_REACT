@@ -6,7 +6,7 @@
  * Shows ticket confirmation with reference number
  */
 
-import { MessageSquare, X, Loader2, CheckCircle, Ticket } from "lucide-react"
+import { MessageSquare, X, Loader2, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useEscalation, EscalationData, ConversationMessage } from "./useEscalation"
 import { useEffect } from "react"
@@ -37,7 +37,7 @@ export function EscalationPrompt({
   className,
 }: EscalationPromptProps) {
   const {
-    failureId,
+    failureId: _failureId,
     ticketId,
     isRecordingFailure,
     isCreatingTicket,
@@ -74,19 +74,25 @@ export function EscalationPrompt({
     }
   }
 
-  // Show ticket created success with reference number
+  // Show ticket created success with personalised confirmation
   if (status === 'ticket_created' && ticketId) {
+    const userName = escalationData.user_name?.split(' ')[0] || 'there'
+    const userEmail = escalationData.user_email
+
     return (
       <div className={cn(
-        "inline-flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm",
+        "flex flex-col gap-2 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-sm",
         className
       )}>
-        <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
-        <div>
-          <span className="font-medium text-green-800">Ticket Created: </span>
-          <span className="font-mono font-bold text-green-700">#{ticketId}</span>
-          <span className="text-green-600 ml-2">• Email confirmation sent</span>
+        <div className="flex items-center gap-2">
+          <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+          <span className="font-semibold text-green-800">Support Ticket Created</span>
         </div>
+        <p className="text-green-800">
+          Hi {userName}, I've created support ticket <span className="font-mono font-bold">#{ticketId}</span> for you
+          {userEmail && <> and emailed a copy to <span className="font-medium">{userEmail}</span> for your reference</>}.
+          A support agent will reach out to you shortly with more details.
+        </p>
       </div>
     )
   }

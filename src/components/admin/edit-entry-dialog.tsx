@@ -53,7 +53,8 @@ export function EditEntryDialog({ entry, isOpen, onClose, onSaved }: EditEntryDi
       setUserType(metadata.userType || entry.userType || "internal")
       setProduct(metadata.product || "property_engine")
       setCategory(metadata.category || entry.category || "")
-      setTags(metadata.tags || entry.tags || "")
+      const rawTags = metadata.tags || entry.tags || ""
+      setTags(Array.isArray(rawTags) ? rawTags.join(', ') : rawTags)
     }
   }, [entry, isOpen])
 
@@ -71,8 +72,10 @@ export function EditEntryDialog({ entry, isOpen, onClose, onSaved }: EditEntryDi
 
     try {
       // Prepare the update payload (formData + metadata + audit trail)
-      // Convert tags string to array if backend expects list
-      const tagsArray = tags ? tags.split(',').map(t => t.trim()).filter(t => t) : []
+      // Convert tags to array — handle both string and array inputs
+      const tagsArray = Array.isArray(tags)
+        ? tags
+        : tags ? tags.split(',').map(t => t.trim()).filter(t => t) : []
       
       const updates = {
         rawFormData: formData,

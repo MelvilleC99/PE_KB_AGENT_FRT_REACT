@@ -143,10 +143,10 @@ export function useEscalation(): UseEscalationReturn {
       }
 
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to decline'
-      setError(msg)
-      console.error('Decline error:', err)
-      return false
+      // Still show declined state even if API fails — the user chose to decline
+      console.warn('Decline API error (still dismissing):', err)
+      setStatus('declined')
+      return true
     } finally {
       setIsDeclining(false)
     }

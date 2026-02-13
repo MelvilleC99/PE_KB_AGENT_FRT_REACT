@@ -1,6 +1,6 @@
 // Chat types
 
-export type FeedbackType = 'helpful' | 'unhelpful' | null
+export type FeedbackType = 'positive' | 'negative' | null
 
 export interface ChatMessage {
   id: string

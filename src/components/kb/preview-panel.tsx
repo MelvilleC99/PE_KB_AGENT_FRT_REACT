@@ -63,13 +63,13 @@ export function PreviewPanel({
         </div>
 
         {/* Tags */}
-        {tags && tags.trim() && (
+        {tags && (Array.isArray(tags) ? tags.length > 0 : tags.trim()) && (
           <div>
             <p className="text-sm font-medium mb-2">Tags:</p>
             <div className="flex flex-wrap gap-1">
-              {tags.split(',').map((tag, index) => (
+              {(Array.isArray(tags) ? tags : tags.split(',')).map((tag, index) => (
                 <Badge key={index} variant="secondary" className="text-xs">
-                  {tag.trim()}
+                  {typeof tag === 'string' ? tag.trim() : tag}
                 </Badge>
               ))}
             </div>

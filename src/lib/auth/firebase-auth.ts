@@ -14,8 +14,11 @@ import { getUser, createOrUpdateUser, UserInfo } from '@/lib/firebase/users'
  */
 export async function signIn(email: string, password: string): Promise<UserInfo> {
   try {
+    // Normalize email to lowercase to prevent duplicate user entries
+    const normalizedEmail = email.toLowerCase()
+
     // Sign in with Firebase Auth
-    const userCredential = await signInWithEmailAndPassword(auth, email, password)
+    const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password)
     const firebaseUser = userCredential.user
     
     console.log('✅ Firebase Auth successful:', firebaseUser.email)

@@ -1,14 +1,78 @@
 # CRM Chat Integration Guide
 
-## Overview
+## Product Overview — Customer Chat Agent
 
-This document describes how to integrate a chat interface in your CRM system with the PropertyEngine Knowledge Base backend. Your CRM chat UI will connect directly to our backend API to provide AI-powered support responses, ticket escalation, and feedback collection.
+This section explains how the customer-facing chat agent works from a product perspective. It is intended for product managers and stakeholders who need to understand the user experience before diving into technical details.
 
-The backend handles all AI processing, knowledge base lookups, ticket creation, and email notifications. Your CRM frontend only needs to:
+### What It Does
 
-1. Send user messages and receive responses (Chat)
-2. Handle escalation when the bot can't answer confidently (Escalation / Tickets)
-3. Allow users to rate responses (Feedback)
+The customer chat agent is an AI-powered support assistant embedded in the CRM. When a user (typically a property agent or customer) has a question about PropertyEngine, they type it into a chat window. The system searches our knowledge base, finds the most relevant information, and responds with a helpful answer — all in real time.
+
+### The User Journey
+
+**Step 1 — User Opens Chat**
+The user sees a chat window with a welcome message. Their identity (name, email, agency, office) is automatically pulled from the CRM — they don't need to log in or identify themselves.
+
+**Step 2 — User Asks a Question**
+The user types a question, e.g. "How do I process a refund?" and hits send. While the backend processes the request, a loading indicator is shown.
+
+**Step 3 — Bot Responds**
+The backend searches the knowledge base, finds matching articles, and generates a response. The user sees:
+- The AI-generated answer
+- Source references (the KB articles used to build the answer)
+- A confidence score indicating how sure the system is about the answer
+
+**Step 4a — Good Answer (Confident Response)**
+If the system is confident in its answer, the user sees **feedback buttons** (thumbs up / thumbs down) below the response. This lets them rate whether the answer was helpful. Feedback is one-time per message — once rated, the buttons are disabled. The user can then continue asking more questions in the same session.
+
+**Step 4b — Poor Answer (Low Confidence / Escalation)**
+If the system is **not confident** it found a good answer, it flags the response for escalation. Instead of feedback buttons, the user sees a prompt:
+
+> "I couldn't find a confident answer. Would you like to create a support ticket?"
+
+The user has two options:
+- **"Yes, Create Ticket"** — A support ticket is automatically created in Freshdesk with all the context: who the user is, what they asked, what the bot replied, and the full conversation history. The user sees a personalised confirmation: *"Hi Jane, I've created support ticket #9630 for you and emailed a copy to jane@company.com for your reference. A support agent will reach out to you shortly with more details."*
+- **"No Thanks"** — The ticket prompt is dismissed and the user can continue chatting.
+
+### What Happens Behind the Scenes
+
+| Step | What the user sees | What happens in the backend |
+|---|---|---|
+| User sends message | Loading spinner | Message sent to AI agent with user context and session history |
+| Bot responds (confident) | Answer + feedback buttons | Knowledge base searched, best match found, response generated |
+| Bot responds (low confidence) | Answer + ticket prompt | Same as above, but confidence below threshold triggers escalation flag |
+| User creates ticket | Confirmation with ticket number | Failure logged in Firebase, ticket created in Freshdesk, email sent to user |
+| User gives feedback | "Thanks!" indicator | Feedback recorded with full context (question, answer, user, confidence) |
+
+### Session Behaviour
+
+- Each conversation is a **session**. The backend tracks context across messages within a session, so follow-up questions work naturally.
+- Sessions are **not persistent** — if the user refreshes the page or closes the chat, the session ends and a new one starts.
+- There is **rate limiting** — users can only send a set number of queries per time period. If they hit the limit, they see a message telling them when they can try again.
+
+### Key Business Rules
+
+1. **Feedback and escalation are mutually exclusive** — a message either gets feedback buttons OR an escalation prompt, never both.
+2. **Tickets are created in Freshdesk** — the backend handles the Freshdesk integration. The chat UI never talks to Freshdesk directly.
+3. **Email confirmations are automatic** — when a ticket is created, the backend sends a confirmation email to the user.
+4. **All interactions are logged** — every question, answer, feedback rating, and ticket creation is recorded for analytics and audit purposes.
+5. **No authentication required from the chat UI** — user identity is passed with each request from the CRM's existing user data.
+
+### Agent Types
+
+| Agent | Purpose | Audience |
+|---|---|---|
+| `customer` | Customer-facing support | End users / property agents |
+| `support` | Internal support agent | Internal staff |
+| `test` | Debug & testing | Developers only — includes detailed debug metrics |
+
+For the CRM integration, you will use the **customer** agent. The API contract is identical across all three — only the backend behaviour and response detail level differs.
+
+---
+
+## Technical Integration Guide
+
+The sections below are for the **development team** building the CRM chat integration. They describe the exact API endpoints, request/response formats, and implementation details.
 
 ---
 
@@ -425,7 +489,8 @@ USER TYPES MESSAGE
                     |       |
                     |       v
                     |   POST /api/agent-failure/{failure_id}/create-ticket
-                    |   Show: "Ticket #12345 created"
+                    |   Show: "Hi {name}, I've created support ticket #{id}
+                    |          for you and emailed a copy to {email}..."
                     |
                     +---> NO
                             |

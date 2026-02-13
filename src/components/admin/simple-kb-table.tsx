@@ -2,6 +2,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Eye, Edit, Upload, Trash2, MoreHorizontal, Loader } from "lucide-react"
 import {
   DropdownMenu,
@@ -27,6 +28,8 @@ interface SimpleKBTableProps {
   sortBy?: string
   sortOrder?: 'asc' | 'desc'
   onSort?: (column: string) => void
+  selectedIds?: Set<string>
+  onSelectionChange?: (ids: Set<string>) => void
 }
 
 const formatDate = (date: any): string => {
@@ -46,7 +49,32 @@ const formatDate = (date: any): string => {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined })
 }
 
-export function SimpleKBTable({ entries, onEdit, onDelete, onView, onSync, syncingEntryId, sortBy, sortOrder, onSort }: SimpleKBTableProps) {
+export function SimpleKBTable({ entries, onEdit, onDelete, onView, onSync, syncingEntryId, sortBy, sortOrder, onSort, selectedIds, onSelectionChange }: SimpleKBTableProps) {
+  const selectable = !!onSelectionChange && !!selectedIds
+
+  const allVisibleSelected = selectable && entries.length > 0 && entries.every(e => e.id && selectedIds.has(e.id))
+  const someSelected = selectable && entries.some(e => e.id && selectedIds.has(e.id))
+
+  const toggleSelectAll = () => {
+    if (!onSelectionChange) return
+    if (allVisibleSelected) {
+      onSelectionChange(new Set())
+    } else {
+      onSelectionChange(new Set(entries.map(e => e.id!).filter(Boolean)))
+    }
+  }
+
+  const toggleSelect = (entryId: string) => {
+    if (!onSelectionChange || !selectedIds) return
+    const next = new Set(selectedIds)
+    if (next.has(entryId)) {
+      next.delete(entryId)
+    } else {
+      next.add(entryId)
+    }
+    onSelectionChange(next)
+  }
+
   const SortableHeader = ({ column, children }: { column: string, children: React.ReactNode }) => (
     <TableHead 
       onClick={() => onSort?.(column)}
@@ -73,6 +101,14 @@ export function SimpleKBTable({ entries, onEdit, onDelete, onView, onSync, synci
       <Table>
         <TableHeader>
           <TableRow>
+            {selectable && (
+              <TableHead className="w-[40px]">
+                <Checkbox
+                  checked={allVisibleSelected ? true : someSelected ? "indeterminate" : false}
+                  onCheckedChange={toggleSelectAll}
+                />
+              </TableHead>
+            )}
             <SortableHeader column="title">Title</SortableHeader>
             <SortableHeader column="type">Type</SortableHeader>
             <SortableHeader column="category">Category</SortableHeader>
@@ -85,7 +121,15 @@ export function SimpleKBTable({ entries, onEdit, onDelete, onView, onSync, synci
         </TableHeader>
         <TableBody>
           {entries.map((entry) => (
-            <TableRow key={entry.id}>
+            <TableRow key={entry.id} className={selectable && entry.id && selectedIds?.has(entry.id) ? "bg-blue-50" : ""}>
+              {selectable && (
+                <TableCell>
+                  <Checkbox
+                    checked={!!entry.id && selectedIds!.has(entry.id)}
+                    onCheckedChange={() => entry.id && toggleSelect(entry.id)}
+                  />
+                </TableCell>
+              )}
               <TableCell className="font-medium max-w-xs">
                 <div className="truncate">{entry.title}</div>
                 {(entry.metadata?.tags || entry.tags) && (

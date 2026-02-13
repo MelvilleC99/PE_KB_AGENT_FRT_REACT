@@ -1,20 +1,19 @@
 import { useState, useRef, useEffect } from "react"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { 
-  Send, 
-  Loader2, 
-  Bot, 
-  User, 
+import {
+  Send,
+  Loader2,
+  User,
   RotateCcw
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { useChat, type ChatMessage } from "./useChat"
+import { useChat } from "./useChat"
 import { useUser } from "@/contexts/UserContext"
 import { FeedbackButtons } from "@/components/feedback"
 import { EscalationPrompt } from "@/components/ticket"
 import { DebugAnalytics } from "@/components/debug"
+import { ThinkingIndicator, AgentAvatar } from "./ThinkingIndicator"
 
 interface FullPageChatProps {
   agentType: 'test' | 'support' | 'customer'
@@ -24,9 +23,6 @@ export function FullPageChat({ agentType }: FullPageChatProps) {
   const [inputMessage, setInputMessage] = useState("")
   const scrollRef = useRef<HTMLDivElement>(null)
   const { user } = useUser()
-
-  // Track which messages have had escalation handled
-  const [handledEscalations, setHandledEscalations] = useState<Set<string>>(new Set())
 
   // Use the chat hook with agent type
   const {
@@ -95,22 +91,13 @@ export function FullPageChat({ agentType }: FullPageChatProps) {
     return ''
   }
 
-  // Handle escalation completion (ticket created or declined)
-  const handleEscalationComplete = (messageId: string) => {
-    setHandledEscalations(prev => new Set([...prev, messageId]))
-  }
-
   const headerColorClass = getAgentColor()
 
   return (
     <div className="flex flex-col h-full max-h-full bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
       <div className={`flex-shrink-0 flex items-center justify-between p-4 bg-gradient-to-r ${headerColorClass} text-white rounded-t-lg`}>
         <div className="flex items-center gap-3">
-          <Avatar className="h-8 w-8 border border-white/30">
-            <AvatarFallback className="bg-white/20 text-white">
-              <Bot className="h-5 w-5" />
-            </AvatarFallback>
-          </Avatar>
+          <AgentAvatar className="h-8 w-8 border border-white/30" />
           <div>
             <p className="font-semibold">{getAgentTitle()}</p>
             <p className="text-xs text-blue-100">Online • Ready to help</p>
@@ -132,7 +119,7 @@ export function FullPageChat({ agentType }: FullPageChatProps) {
       <div className="flex-1 overflow-y-auto p-4 min-h-0" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
-            <Bot className="h-12 w-12 mb-4 text-gray-400" />
+            <AgentAvatar className="h-16 w-16 mb-4" />
             <p className="text-lg font-medium">Welcome {user?.full_name || 'User'} to PropertyEngine Support</p>
             <p className="text-sm mt-2">Ask me about: Workflows, Definitions, Error Solutions, How-to Guides</p>
           </div>
@@ -141,11 +128,15 @@ export function FullPageChat({ agentType }: FullPageChatProps) {
             {messages.map((message, messageIndex) => (
               <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`flex gap-3 max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                  <Avatar className="h-8 w-8 mt-1">
-                    <AvatarFallback className={message.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-200'}>
-                      {message.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
-                    </AvatarFallback>
-                  </Avatar>
+                  {message.role === 'user' ? (
+                    <Avatar className="h-8 w-8 mt-1">
+                      <AvatarFallback className="bg-blue-600 text-white">
+                        <User className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <AgentAvatar className="h-8 w-8 mt-1" />
+                  )}
                   
                   <div className="flex flex-col gap-2">
                     <div className={`rounded-lg p-3 ${
@@ -183,15 +174,14 @@ export function FullPageChat({ agentType }: FullPageChatProps) {
                     )}
 
                     {/* Escalation Prompt - Using new isolated component */}
-                    {message.role === 'assistant' && 
-                     message.requiresEscalation && 
-                     !handledEscalations.has(message.id) &&
-                     user && 
+                    {message.role === 'assistant' &&
+                     message.requiresEscalation &&
+                     user &&
                      sessionId && (
                       <EscalationPrompt
                         escalationData={{
                           session_id: sessionId,
-                          agent_id: user.agent_id || user.uid || 'anonymous',
+                          agent_id: user.agent_id || 'anonymous',
                           query: getPreviousUserMessage(messageIndex),
                           agent_response: message.content,
                           confidence_score: message.sources?.[0]?.confidence || 0,
@@ -208,11 +198,9 @@ export function FullPageChat({ agentType }: FullPageChatProps) {
                           timestamp: m.timestamp
                         }))}
                         onTicketCreated={(ticketId) => {
-                          handleEscalationComplete(message.id)
                           console.log(`✅ Ticket #${ticketId} created`)
                         }}
                         onDeclined={() => {
-                          handleEscalationComplete(message.id)
                           console.log('❌ Ticket declined')
                         }}
                         className="mt-2"
@@ -230,7 +218,7 @@ export function FullPageChat({ agentType }: FullPageChatProps) {
                         query={getPreviousUserMessage(messageIndex)}
                         response={message.content}
                         user={{
-                          agent_id: user.agent_id || user.uid || 'anonymous',
+                          agent_id: user.agent_id || 'anonymous',
                           email: user.email || 'no-email@unknown.com',
                           full_name: user.full_name || 'Anonymous User'
                         }}
@@ -247,19 +235,8 @@ export function FullPageChat({ agentType }: FullPageChatProps) {
               </div>
             ))}
 
-            {/* Typing indicator */}
-            {isTyping && (
-              <div className="flex gap-3">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-gray-200">
-                    <Bot className="h-4 w-4" />
-                  </AvatarFallback>
-                </Avatar>
-                <div className="bg-gray-100 rounded-lg p-3">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                </div>
-              </div>
-            )}
+            {/* Thinking indicator */}
+            {isTyping && <ThinkingIndicator />}
           </div>
         )}
       </div>

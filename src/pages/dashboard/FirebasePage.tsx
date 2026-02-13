@@ -8,8 +8,9 @@ import { SimpleKBTable } from "@/components/admin/simple-kb-table"
 import { ViewEntryModal } from "@/components/admin/view-entry-modal"
 import { EditEntryDialog } from "@/components/admin/edit-entry-dialog"
 import { FilterBar } from "@/components/admin/filter-bar"
-import { getKBEntries, archiveKBEntry, syncKBEntry } from "@/lib/api/kb"
-import { Plus, RefreshCw } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { getKBEntries, archiveKBEntry, deleteVectorEntry, syncKBEntry } from "@/lib/api/kb"
+import { Plus, RefreshCw, Trash2, X, Loader2 } from "lucide-react"
 import type { KBEntry } from "@/lib/types/kb"
 
 export function FirebasePage() {
@@ -22,6 +23,17 @@ export function FirebasePage() {
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [selectedEntry, setSelectedEntry] = useState<KBEntry | null>(null)
   
+  // Bulk selection mode
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkArchiving, setBulkArchiving] = useState(false)
+  const [alsoDeleteVectors, setAlsoDeleteVectors] = useState(true)
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false)
+    setSelectedIds(new Set())
+  }
+
   // Filters
   const [searchQuery, setSearchQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState("")
@@ -201,12 +213,83 @@ export function FirebasePage() {
   
   const handleSort = (column: string) => {
     if (sortBy === column) {
-      // Toggle sort order if clicking same column
       setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')
     } else {
-      // New column - default to desc
       setSortBy(column)
       setSortOrder('desc')
+    }
+  }
+
+  const handleBulkArchive = async () => {
+    const count = selectedIds.size
+    if (count === 0) return
+
+    const syncedCount = entries.filter(e => e.id && selectedIds.has(e.id) && e.vectorStatus === 'synced').length
+
+    const message = alsoDeleteVectors && syncedCount > 0
+      ? `Archive ${count} entries and delete ${syncedCount} vector embedding(s)?`
+      : `Archive ${count} entries?`
+
+    if (!confirm(message + '\n\nThis action cannot be easily undone.')) return
+
+    setBulkArchiving(true)
+    const auditInfo = {
+      archivedBy: user?.agent_id || user?.uid || 'anonymous',
+      archivedByEmail: user?.email || 'unknown@example.com',
+      archivedByName: user?.full_name || 'Anonymous User',
+      reason: 'Bulk archive from Firebase page'
+    }
+
+    try {
+      // Archive all selected entries in parallel
+      const archiveResults = await Promise.allSettled(
+        Array.from(selectedIds).map(id => archiveKBEntry(id, auditInfo))
+      )
+
+      const archived = archiveResults.filter(r => r.status === 'fulfilled' && r.value.success).length
+      const archiveFailed = count - archived
+
+      // Delete vectors for synced entries if opted in
+      let vectorsDeleted = 0
+      if (alsoDeleteVectors) {
+        const syncedIds = entries
+          .filter(e => e.id && selectedIds.has(e.id) && e.vectorStatus === 'synced')
+          .map(e => e.id!)
+
+        if (syncedIds.length > 0) {
+          const vectorResults = await Promise.allSettled(
+            syncedIds.map(id => deleteVectorEntry(id))
+          )
+          vectorsDeleted = vectorResults.filter(r => r.status === 'fulfilled' && r.value.success).length
+        }
+      }
+
+      // Remove archived entries from state and exit selection mode
+      setEntries(prev => prev.filter(e => !e.id || !selectedIds.has(e.id) || archiveResults[Array.from(selectedIds).indexOf(e.id)].status !== 'fulfilled'))
+      exitSelectionMode()
+
+      // Show summary toast
+      const parts: string[] = []
+      parts.push(`Archived ${archived} of ${count} entries`)
+      if (vectorsDeleted > 0) parts.push(`deleted ${vectorsDeleted} vector(s)`)
+      if (archiveFailed > 0) parts.push(`${archiveFailed} failed`)
+
+      toast({
+        title: archiveFailed > 0 ? 'Bulk archive partially complete' : 'Bulk archive complete',
+        description: parts.join(', '),
+        variant: archiveFailed > 0 ? 'destructive' : undefined
+      })
+
+      // Refresh to get accurate state
+      loadEntries()
+    } catch (error) {
+      toast({
+        title: 'Bulk archive error',
+        description: 'An unexpected error occurred',
+        variant: 'destructive'
+      })
+    } finally {
+      setBulkArchiving(false)
     }
   }
 
@@ -223,6 +306,17 @@ export function FirebasePage() {
             <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
+          {selectionMode ? (
+            <Button variant="outline" onClick={exitSelectionMode}>
+              <X className="w-4 h-4 mr-2" />
+              Cancel
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={() => setSelectionMode(true)} className="text-red-600 border-red-200 hover:bg-red-50">
+              <Trash2 className="w-4 h-4 mr-2" />
+              Bulk Archive
+            </Button>
+          )}
           <Button asChild>
             <Link to="/add-entry">
               <Plus className="w-4 h-4 mr-2" />
@@ -251,6 +345,39 @@ export function FirebasePage() {
             onClearFilters={handleClearFilters}
           />
 
+          {/* Bulk Action Bar — shown when in selection mode */}
+          {selectionMode && (
+            <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <span className="text-sm font-medium text-blue-800">
+                {selectedIds.size === 0
+                  ? 'Select entries to archive'
+                  : `${selectedIds.size} ${selectedIds.size === 1 ? 'entry' : 'entries'} selected`}
+              </span>
+              <div className="flex items-center gap-2 ml-auto">
+                <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                  <Checkbox
+                    checked={alsoDeleteVectors}
+                    onCheckedChange={(checked) => setAlsoDeleteVectors(!!checked)}
+                  />
+                  Also delete vectors
+                </label>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBulkArchive}
+                  disabled={bulkArchiving || selectedIds.size === 0}
+                >
+                  {bulkArchiving ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3 w-3 mr-1" />
+                  )}
+                  {bulkArchiving ? 'Archiving...' : `Archive Selected (${selectedIds.size})`}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Table */}
           {loading ? (
             <div className="text-center py-12">
@@ -268,6 +395,7 @@ export function FirebasePage() {
               sortBy={sortBy}
               sortOrder={sortOrder}
               onSort={handleSort}
+              {...(selectionMode ? { selectedIds, onSelectionChange: setSelectedIds } : {})}
             />
           )}
         </CardContent>

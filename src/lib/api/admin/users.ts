@@ -51,7 +51,7 @@ export async function createUser(userData: CreateUserInput): Promise<{
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(userData),
+      body: JSON.stringify({ ...userData, email: userData.email.toLowerCase() }),
     });
     return await response.json();
   } catch (error) {
@@ -71,7 +71,7 @@ export async function updateUser(email: string, updates: UpdateUserInput): Promi
   error?: string
 }> {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/users/${encodeURIComponent(email)}`, {
+    const response = await fetch(`${BACKEND_URL}/api/users/${encodeURIComponent(email.toLowerCase())}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -95,7 +95,7 @@ export async function deleteUser(email: string): Promise<{
   error?: string
 }> {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/users/${encodeURIComponent(email)}`, {
+    const response = await fetch(`${BACKEND_URL}/api/users/${encodeURIComponent(email.toLowerCase())}`, {
       method: 'DELETE',
     });
     return await response.json();

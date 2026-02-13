@@ -146,26 +146,47 @@ export async function getArchivedKBEntries(): Promise<KBEntryWithStatus[]> {
   }
   
   try {
-    const q = query(
-      collection(db, KB_COLLECTION), 
-      where('status', '==', 'archived'),
-      orderBy('archivedAt', 'desc')
+    // Query both archive markers: 'status === archived' and 'archived === true'
+    // Backend sets 'archived: true', but we also check 'status' for forward compatibility
+    const q1 = query(
+      collection(db, KB_COLLECTION),
+      where('status', '==', 'archived')
     );
-    const querySnapshot = await getDocs(q);
+    const q2 = query(
+      collection(db, KB_COLLECTION),
+      where('archived', '==', true)
+    );
+
+    const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+
+    // Deduplicate by doc ID (entry may match both queries)
+    const seen = new Set<string>();
     const entries: KBEntryWithStatus[] = [];
-    
-    querySnapshot.forEach((docSnap) => {
+
+    const processDoc = (docSnap: any) => {
+      if (seen.has(docSnap.id)) return;
+      seen.add(docSnap.id);
       const data = docSnap.data();
-      entries.push({ 
-        id: docSnap.id, 
+      entries.push({
+        id: docSnap.id,
         ...data,
         createdAt: data.createdAt?.toDate?.() || new Date(),
         updatedAt: data.updatedAt?.toDate?.() || new Date(),
         archivedAt: data.archivedAt?.toDate?.() || new Date(),
         lastSyncedAt: data.lastSyncedAt?.toDate?.() || null,
       } as KBEntryWithStatus);
+    };
+
+    snap1.forEach(processDoc);
+    snap2.forEach(processDoc);
+
+    // Sort by archivedAt descending
+    entries.sort((a, b) => {
+      const aTime = a.archivedAt ? new Date(a.archivedAt as any).getTime() : 0;
+      const bTime = b.archivedAt ? new Date(b.archivedAt as any).getTime() : 0;
+      return bTime - aTime;
     });
-    
+
     return entries;
   } catch (error) {
     console.error('Error fetching archived entries:', error);

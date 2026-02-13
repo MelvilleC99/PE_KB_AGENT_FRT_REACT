@@ -150,10 +150,11 @@ export function DynamicStepsForm({ value, onChange }: DynamicStepsFormProps) {
 
               <div>
                 <Label className="text-xs font-medium">Action</Label>
-                <Input
+                <Textarea
                   value={step.action}
                   onChange={(e) => updateStep(step.id, "action", e.target.value)}
                   placeholder="e.g., Click 'Save', Navigate to Settings"
+                  rows={2}
                   className="text-sm"
                 />
               </div>

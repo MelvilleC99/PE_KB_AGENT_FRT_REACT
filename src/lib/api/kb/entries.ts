@@ -12,7 +12,7 @@ export interface KBEntryInput {
     product: string;
     category: string;
     subcategory?: string;
-    tags?: string;
+    tags?: string | string[];
     [key: string]: any;
   };
   rawFormData?: Record<string, any>;

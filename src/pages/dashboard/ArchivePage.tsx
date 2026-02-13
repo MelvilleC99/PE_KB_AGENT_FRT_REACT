@@ -4,8 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
-import { RotateCcw, Trash2, ArrowLeft, Archive } from "lucide-react"
+import { RotateCcw, Trash2, ArrowLeft, Archive, X, Loader2 } from "lucide-react"
 import { getArchivedKBEntries, restoreKBEntry, permanentlyDeleteKBEntry } from "@/lib/api/kb"
 
 interface ArchivedEntry {
@@ -27,6 +28,70 @@ export function ArchivePage() {
   const [entries, setEntries] = useState<ArchivedEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState<string | null>(null)
+
+  // Bulk selection mode
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false)
+    setSelectedIds(new Set())
+  }
+
+  const toggleSelect = (entryId: string) => {
+    const next = new Set(selectedIds)
+    if (next.has(entryId)) {
+      next.delete(entryId)
+    } else {
+      next.add(entryId)
+    }
+    setSelectedIds(next)
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === entries.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(entries.map(e => e.id)))
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    const count = selectedIds.size
+    if (count === 0) return
+
+    if (!confirm(`⚠️ PERMANENTLY DELETE ${count} entries?\n\nThis action CANNOT be undone. These entries will be completely removed forever.`)) return
+
+    setBulkDeleting(true)
+
+    try {
+      const results = await Promise.allSettled(
+        Array.from(selectedIds).map(id => permanentlyDeleteKBEntry(id))
+      )
+
+      const deleted = results.filter(r => r.status === 'fulfilled' && r.value.success).length
+      const failed = count - deleted
+
+      exitSelectionMode()
+
+      toast({
+        title: failed > 0 ? 'Bulk delete partially complete' : 'Bulk delete complete',
+        description: `Permanently deleted ${deleted} of ${count} entries${failed > 0 ? `, ${failed} failed` : ''}`,
+        variant: failed > 0 ? 'destructive' : undefined
+      })
+
+      fetchArchivedEntries()
+    } catch (error) {
+      toast({
+        title: 'Bulk delete error',
+        description: 'An unexpected error occurred',
+        variant: 'destructive'
+      })
+    } finally {
+      setBulkDeleting(false)
+    }
+  }
 
   useEffect(() => {
     fetchArchivedEntries()
@@ -137,13 +202,30 @@ export function ArchivePage() {
             </Link>
           </Button>
         </div>
-        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-          <Archive className="h-8 w-8" />
-          Archived Entries
-        </h1>
-        <p className="text-muted-foreground">
-          Manage archived knowledge base entries. You can restore entries or permanently delete them.
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+              <Archive className="h-8 w-8" />
+              Archived Entries
+            </h1>
+            <p className="text-muted-foreground">
+              Manage archived knowledge base entries. You can restore entries or permanently delete them.
+            </p>
+          </div>
+          {entries.length > 0 && (
+            selectionMode ? (
+              <Button variant="outline" onClick={exitSelectionMode}>
+                <X className="w-4 h-4 mr-2" />
+                Cancel
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={() => setSelectionMode(true)} className="text-red-600 border-red-200 hover:bg-red-50">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Bulk Delete
+              </Button>
+            )
+          )}
+        </div>
       </div>
 
       {/* Stats */}
@@ -184,6 +266,32 @@ export function ArchivePage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Bulk Action Bar */}
+          {selectionMode && (
+            <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+              <span className="text-sm font-medium text-blue-800">
+                {selectedIds.size === 0
+                  ? 'Select entries to permanently delete'
+                  : `${selectedIds.size} ${selectedIds.size === 1 ? 'entry' : 'entries'} selected`}
+              </span>
+              <div className="flex items-center gap-2 ml-auto">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleting || selectedIds.size === 0}
+                >
+                  {bulkDeleting ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3 w-3 mr-1" />
+                  )}
+                  {bulkDeleting ? 'Deleting...' : `Delete Forever (${selectedIds.size})`}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {entries.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Archive className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -195,6 +303,14 @@ export function ArchivePage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    {selectionMode && (
+                      <TableHead className="w-[40px]">
+                        <Checkbox
+                          checked={entries.length > 0 && selectedIds.size === entries.length ? true : selectedIds.size > 0 ? "indeterminate" : false}
+                          onCheckedChange={toggleSelectAll}
+                        />
+                      </TableHead>
+                    )}
                     <TableHead>Title</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Category</TableHead>
@@ -204,7 +320,15 @@ export function ArchivePage() {
                 </TableHeader>
                 <TableBody>
                   {entries.map((entry) => (
-                    <TableRow key={entry.id}>
+                    <TableRow key={entry.id} className={selectionMode && selectedIds.has(entry.id) ? "bg-blue-50" : ""}>
+                      {selectionMode && (
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIds.has(entry.id)}
+                            onCheckedChange={() => toggleSelect(entry.id)}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell className="font-medium max-w-xs">
                         <div className="truncate">{entry.title}</div>
                       </TableCell>
